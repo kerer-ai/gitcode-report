@@ -106,7 +106,7 @@ def cmd_report(args: argparse.Namespace) -> int:
             )
         output = "\n".join(lines)
     else:
-        output = generate_full_report(issues, filter_infra=filter_infra)
+        output = generate_full_report(issues, filter_infra=filter_infra, days=args.days)
 
     if args.output:
         report_path = args.output

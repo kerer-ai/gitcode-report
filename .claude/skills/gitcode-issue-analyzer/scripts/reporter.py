@@ -1,6 +1,7 @@
 """Report output formatting — markdown tables and summary statistics."""
 
 from collections import Counter
+from datetime import datetime, timezone
 
 
 def generate_table(
@@ -121,20 +122,65 @@ def generate_summary(issues: list[dict], filter_infra: bool = True) -> str:
     return "\n".join(lines)
 
 
+def _extract_meta(issues: list[dict]) -> tuple[str, str, str]:
+    """Extract target name and date range from issue data."""
+    repos = list(set(i.get("repo", "") for i in issues if i.get("repo")))
+    target = repos[0] if len(repos) == 1 else ", ".join(sorted(repos))
+
+    dates = [i.get("created_at", "")[:10] for i in issues if i.get("created_at")]
+    date_range = f"{min(dates)} ~ {max(dates)}" if dates else "N/A"
+
+    return target, date_range
+
+
+def generate_header(
+    issues: list[dict],
+    days: int = 7,
+) -> str:
+    """Generate a report header with query metadata.
+
+    Args:
+        issues: List of issue dicts.
+        days: Number of days queried.
+
+    Returns:
+        Markdown header string.
+    """
+    target, date_range = _extract_meta(issues)
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+
+    lines = [
+        f"# GitCode Issue 分析报告",
+        f"",
+        f"| 项目 | 内容 |",
+        f"|------|------|",
+        f"| 查询目标 | **{target}** |",
+        f"| 查询天数 | 最近 **{days}** 天 |",
+        f"| Issue 时间范围 | {date_range} |",
+        f"| 报告生成时间 | {now} |",
+        f"| 获取 Issue 总数 | **{len(issues)}** |",
+        f"",
+    ]
+    return "\n".join(lines)
+
+
 def generate_full_report(
     issues: list[dict],
     filter_infra: bool = True,
+    days: int = 7,
 ) -> str:
-    """Generate a complete report with summary and detail table.
+    """Generate a complete report with header, summary and detail table.
 
     Args:
         issues: List of issue dicts with classification fields.
         filter_infra: If True, only report infrastructure issues.
+        days: Number of days queried.
 
     Returns:
         Full report as Markdown text.
     """
     parts = [
+        generate_header(issues, days=days),
         generate_summary(issues, filter_infra=filter_infra),
         "",
         "## 详情",
