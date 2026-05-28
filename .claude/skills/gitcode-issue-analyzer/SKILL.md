@@ -42,7 +42,7 @@ bash: python3 .claude/skills/gitcode-issue-analyzer/scripts/analyze.py <target> 
 - 测试框架、测试基础设施
 - 部署、容器化、Kubernetes、Docker
 - 监控、日志、告警、可观测性
-- 代码质量工具（lint、format、静态分析）
+- 代码质量工具（lint、format、静态分析工具的引入/配置/维护）
 - 开发者工具、脚本、自动化
 
 **不属于基础设施：**
@@ -51,6 +51,9 @@ bash: python3 .claude/skills/gitcode-issue-analyzer/scripts/analyze.py <target> 
 - 算子/模型/runtime bug 修复
 - CVE/依赖安全漏洞
 - API 一致性分析/使用问题
+- 新功能 RFC
+- 代码重构/清理（如模块重构、拼写修正、减少重复代码）
+- 编译器/工具链的新功能增强（如新增 costmodel 后端）
 - 新功能 RFC
 
 超过 20 条 issue 时，分批次分类，每批约 25 条。各批次独立处理。
