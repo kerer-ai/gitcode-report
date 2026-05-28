@@ -1,80 +1,80 @@
 ---
 name: gitcode-issue-analyzer
-description: Analyze GitCode repository/community issues to identify infrastructure-related issues using AI classification. Outputs a report.md with categorized table and summary. Use when user wants to analyze issues, find infrastructure issues, classify issues, check repo issues, or generate issue analysis reports.
+description: 分析 GitCode 仓库/社区的 issue，使用 AI 分类识别基础设施类 issue。输出包含分类表格和汇总的 Markdown 报告。当用户需要分析 issue、查找基础设施问题、分类 issue、检查仓库 issue 或生成 issue 分析报告时使用。
 ---
 
-# GitCode Issue Analyzer
+# GitCode Issue 分析器
 
-Analyze issues from a GitCode repository or community, using AI to identify infrastructure-related issues that are often missed by labels.
+使用 AI 分析 GitCode 仓库或社区的 issue，识别常被标签遗漏的基础设施类问题。
 
-## Input
+## 输入参数
 
-Two parameters:
-- **target**: Repository (`owner/repo`) or organization name (e.g. `Ascend/pytorch`, `gitcode-cli`)
-- **days**: Number of days to look back (default: 7)
+两个参数：
+- **target**：仓库名（`owner/repo`）或组织名（如 `Ascend/pytorch`、`gitcode-cli`）
+- **days**：回溯天数（默认 7 天）
 
-If the user does not provide either parameter, ask interactively using `AskUserQuestion`. Ask for both parameters at once — ask for the target first, then the day count.
+如果用户未提供参数，使用 `AskUserQuestion` 交互式询问。一次同时问两个参数——先问 target，再问 days。
 
-## Workflow
+## 工作流
 
-Execute these steps sequentially. The working directory is the current project directory — do NOT `cd` to the skill directory.
+按顺序执行以下步骤。工作目录为当前项目根目录——不要 `cd` 到 skill 目录。
 
-### Step 1: Fetch Issues
+### 步骤 1：获取 Issues
 
-Run from the project root:
+在项目根目录运行：
 
 ```
 bash: python3 .claude/skills/gitcode-issue-analyzer/scripts/analyze.py <target> --days <N> -r ./issues_raw.json
 ```
 
-- Saves raw issue data to `./issues_raw.json`
-- If gc auth fails, tell user to run `gc auth login`
+- 原始 issue 数据保存到 `./issues_raw.json`
+- 如果 gc 认证失败，提示用户执行 `gc auth login`
 
-### Step 2: AI Classification
+### 步骤 2：AI 分类
 
-Read `./issues_raw.json`. For each issue, extract **only** `title` and `description` for classification (drop labels, author, timestamps, state — they consume tokens without aiding classification).
+读取 `./issues_raw.json`。对每条 issue，**仅**提取 `title` 和 `description` 用于分类（丢弃 labels、author、时间戳、state 等不辅助分类的元数据，节省 token）。
 
-Classification criteria:
+分类标准：
 
-**Infrastructure:**
-- CI/CD pipelines, build systems, automation
-- Dev environment setup, toolchain config
-- Test frameworks, testing infrastructure
-- Deployment, containerization, Kubernetes, Docker
-- Monitoring, logging, alerting, observability
-- Code quality tools (lint, format, static analysis)
-- Developer tooling, scripts, automation
+**属于基础设施：**
+- CI/CD 流水线、构建系统、自动化
+- 开发环境搭建、工具链配置
+- 测试框架、测试基础设施
+- 部署、容器化、Kubernetes、Docker
+- 监控、日志、告警、可观测性
+- 代码质量工具（lint、format、静态分析）
+- 开发者工具、脚本、自动化
 
-**NOT infrastructure:**
-- Business features, UI/UX, product requirements
-- Documentation feedback
-- Operator/model/runtime bug fixes
-- CVE / dependency security vulnerabilities
-- API compatibility analysis / usage questions
-- Feature RFCs for new capabilities
+**不属于基础设施：**
+- 业务功能、UI/UX、产品需求
+- 文档反馈
+- 算子/模型/runtime bug 修复
+- CVE/依赖安全漏洞
+- API 一致性分析/使用问题
+- 新功能 RFC
 
-For >20 issues, classify in batches of ~25. Process each batch independently.
+超过 20 条 issue 时，分批次分类，每批约 25 条。各批次独立处理。
 
-Output format — one JSON object per issue:
+输出格式——每条 issue 一个 JSON 对象：
 ```json
-{"repo":"<repo>","number":"<number>","is_infra":true/false,"category":"<subcategory|null>","reason":"<one-line reason in Chinese>"}
+{"repo":"<仓库名>","number":"<issue号>","is_infra":true/false,"category":"<子分类|null>","reason":"<一句话理由>"}
 ```
 
-Valid categories: `ci/cd`, `build`, `testing-infra`, `toolchain`, `dev-environment`, `code-quality`, `deployment`, `containerization`, `monitoring`, `logging`, `alerting`, `developer-experience`, `other-infra`
+可选子分类：`ci/cd`、`build`、`testing-infra`、`toolchain`、`dev-environment`、`code-quality`、`deployment`、`containerization`、`monitoring`、`logging`、`alerting`、`developer-experience`、`other-infra`
 
-Write the complete JSON array to `./classification.json`.
+将完整 JSON 数组写入 `./classification.json`。
 
-### Step 3: Generate Report
+### 步骤 3：生成报告
 
 ```
 bash: python3 .claude/skills/gitcode-issue-analyzer/scripts/analyze.py --load-raw ./issues_raw.json --classify ./classification.json
 ```
 
-This produces a report in `docs/` named `<community>_<timestamp>.md` with a summary section and a Markdown table.
+报告自动保存到 `docs/` 目录，文件名为 `<社区>_<时间戳>.md`，包含汇总统计和 Markdown 详情表格。
 
-### Step 4: Print Summary
+### 步骤 4：输出总结
 
-Print a summary table to the console:
+在控制台打印总结：
 
 ```
 ## 分析结果
@@ -93,13 +93,13 @@ Print a summary table to the console:
 📄 完整报告: docs/<target>_<timestamp>.md
 ```
 
-## Scripts
+## 脚本
 
-Located at `.claude/skills/gitcode-issue-analyzer/scripts/` in the project:
-- `analyze.py` — CLI entry point
-- `gc_wrapper.py` — gc CLI wrapper
-- `fetcher.py` — issue fetching (single repo or org-wide, with pagination and concurrency)
-- `classifier.py` — classification prompt formatting and result parsing
-- `reporter.py` — Markdown table and summary generation
+位于项目 `.claude/skills/gitcode-issue-analyzer/scripts/` 目录：
+- `analyze.py` — CLI 入口
+- `gc_wrapper.py` — gc 命令封装
+- `fetcher.py` — issue 获取编排（单仓库或组织级，支持分页和并发）
+- `classifier.py` — 分类数据准备与结果解析
+- `reporter.py` — Markdown 表格和汇总生成
 
-No external Python dependencies (stdlib only). Requires `gc` CLI installed and authenticated.
+无需外部 Python 依赖（仅标准库）。需要安装并认证 `gc` CLI。
