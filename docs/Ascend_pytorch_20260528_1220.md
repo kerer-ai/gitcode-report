@@ -1,20 +1,19 @@
 ## 汇总
 
 - 总 issues (获取): **103**
-- 基础设施类: **35**
+- 基础设施类: **31**
 
 ### 按子分类统计
 
 - testing-infra: 13
-- toolchain: 9
+- toolchain: 8
 - ci/cd: 6
-- code-quality: 3
 - dev-environment: 3
 - build: 1
 
 ### 按仓库统计
 
-- Ascend/pytorch: 35
+- Ascend/pytorch: 31
 
 ## 详情
 
@@ -27,14 +26,11 @@
 | Ascend/pytorch | 2081    | test目录下torch.jit.ScriptModul.. | testing-infra   | ScriptModule API测试用例缺失        |                                | open   | 2026-05-24 |
 | Ascend/pytorch | 2086    | [Doc]: master和v2.12.0分支的Dock.. | dev-environment | Docker文件夹改为小写docker规范         | document                       | open   | 2026-05-25 |
 | Ascend/pytorch | 2087    | feat(ci): 重命名 trigger workfl.. | ci/cd           | 重命名trigger workflow调整定时策略     | infra-tooling, resolved        | closed | 2026-05-25 |
-| Ascend/pytorch | 2088    | inductor支持调用ta costmodel后端     | toolchain       | inductor接入ta costmodel后端      |                                | open   | 2026-05-25 |
 | Ascend/pytorch | 2089    | [Usage]: torch.fx.Tracer.cre.. | testing-infra   | create_node NPU适配patch补充      | usage, event: api-consistency  | open   | 2026-05-25 |
 | Ascend/pytorch | 2090    | [Test]: CI流水线将ARM_A2用例拆分成npu.. | ci/cd           | CI流水线ARM_A2用例拆分优化             | resolved                       | closed | 2026-05-25 |
 | Ascend/pytorch | 2091    | [Feature]: TORCH_NPU_USE_COM.. | toolchain       | COMPATIBLE_IMPL SoC自动检测       | feature, resolved              | closed | 2026-05-25 |
 | Ascend/pytorch | 2095    | [Usage]: torch.fx.replace_pa.. | testing-infra   | replace_pattern测试NPU适配patch缺失 | usage                          | open   | 2026-05-25 |
-| Ascend/pytorch | 2097    | [Bug]: 修复Stream/Event/Alloca.. | code-quality    | 修复Stream/Event/Allocator拼写错误  | bug, resolved                  | closed | 2026-05-25 |
 | Ascend/pytorch | 2098    | [Bug]: 增加Torch.jit.ScriptMod.. | testing-infra   | 增加ScriptModule.cpu测试用例        | bug                            | open   | 2026-05-26 |
-| Ascend/pytorch | 2099    | [Reactor] 重构AOTI模块             | code-quality    | 重构AOTI模块减少重复代码                | resolved                       | closed | 2026-05-26 |
 | Ascend/pytorch | 2101    | [Feature]: 安装torch_npu时需安装Tr.. | toolchain       | 安装torch_npu需捆绑Triton-Ascend   | feature                        | closed | 2026-05-26 |
 | Ascend/pytorch | 2106    | [Usage]: pytorch社区用例缺少对torch.. | testing-infra   | 补齐create_proxy测试用例            | usage                          | open   | 2026-05-26 |
 | Ascend/pytorch | 2107    | [Bug]: [inductor] torchbench.. | toolchain       | inductor精度工具torchbench报错      | bug, resolved                  | closed | 2026-05-26 |
@@ -43,7 +39,6 @@
 | Ascend/pytorch | 2115    | [Feature]: 测试用例移植              | testing-infra   | 测试用例移植                        | feature, resolved              | closed | 2026-05-27 |
 | Ascend/pytorch | 2117    | [Feature]: 测试用例同步              | testing-infra   | 测试用例同步                        | feature                        | open   | 2026-05-27 |
 | Ascend/pytorch | 2123    | 门禁用例未跑到x86机器，后续在x86上跑失败        | ci/cd           | 门禁未覆盖x86机器导致CI漏测              | resolved                       | closed | 2026-05-27 |
-| Ascend/pytorch | 2128    | [Refactor]: decomposition重构    | code-quality    | decomposition模块重构             | usage                          | open   | 2026-05-27 |
 | Ascend/pytorch | 2130    | [Usage]: torch.distributed.e.. | testing-infra   | elastic agent测试用例补齐           | usage                          | open   | 2026-05-27 |
 | Ascend/pytorch | 2132    | [Doc]: AKG对接PTA新增环境变量          | toolchain       | AKG新增环境变量对接PTA                | resolved, document             | closed | 2026-05-27 |
 | Ascend/pytorch | 2133    | add pass ut                    | testing-infra   | 添加pass单元测试                    |                                | open   | 2026-05-27 |
