@@ -66,10 +66,10 @@ Write the complete JSON array to `./classification.json`.
 ### Step 3: Generate Report
 
 ```
-bash: python3 <skill_dir>/scripts/analyze.py --load-raw ./issues_raw.json --classify ./classification.json -o ./report.md
+bash: python3 <skill_dir>/scripts/analyze.py --load-raw ./issues_raw.json --classify ./classification.json
 ```
 
-This produces `./report.md` with a summary section and a Markdown table.
+This produces a report in `docs/` named `<community>_<timestamp>.md` with a summary section and a Markdown table.
 
 ### Step 4: Print Summary
 
@@ -89,7 +89,7 @@ Print a summary table to the console:
 - <category>: <count>
 ...
 
-📄 完整报告: ./report.md
+📄 完整报告: docs/<target>_<timestamp>.md
 ```
 
 ## Scripts

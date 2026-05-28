@@ -20,7 +20,9 @@ Workflow:
 
 import argparse
 import json
+import os
 import sys
+from datetime import datetime, timezone
 
 from fetcher import fetch_issues, save_raw_issues, load_raw_issues
 from classifier import (
@@ -49,6 +51,23 @@ def cmd_fetch(args: argparse.Namespace) -> int:
     print(prompt)
 
     return 0
+
+
+def _make_report_path(issues: list[dict]) -> str:
+    """Generate report path: docs/<target>_<timestamp>.md"""
+    repos = set(i.get("repo", "unknown") for i in issues if i.get("repo"))
+    # Use first segment of repo or join with underscore
+    if len(repos) == 1:
+        target = list(repos)[0].replace("/", "_")
+    else:
+        # Multiple repos → use common prefix or "multi"
+        parts = [r.split("/")[0] for r in repos]
+        prefix = max(set(parts), key=parts.count) if parts else "unknown"
+        target = f"{prefix}_multi"
+
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M")
+    os.makedirs("docs", exist_ok=True)
+    return f"docs/{target}_{ts}.md"
 
 
 def cmd_report(args: argparse.Namespace) -> int:
@@ -90,11 +109,13 @@ def cmd_report(args: argparse.Namespace) -> int:
         output = generate_full_report(issues, filter_infra=filter_infra)
 
     if args.output:
-        with open(args.output, "w", encoding="utf-8") as f:
-            f.write(output + "\n")
-        print(f"Report saved to: {args.output}")
+        report_path = args.output
     else:
-        print(output)
+        report_path = _make_report_path(issues)
+
+    with open(report_path, "w", encoding="utf-8") as f:
+        f.write(output + "\n")
+    print(f"Report saved to: {report_path}")
 
     return 0
 
