@@ -17,27 +17,33 @@ pip install gitcode-cli
 gc auth login
 
 # 获取 issues
-python3 analyze.py <owner/repo> --days 7 -r ./issues_raw.json
+python3 .claude/skills/gitcode-issue-analyzer/scripts/analyze.py <owner/repo> --days 7 -r ./issues_raw.json
 
 # AI 分类后生成报告（自动保存到 docs/ 目录）
-python3 analyze.py --load-raw ./issues_raw.json --classify ./classification.json
+python3 .claude/skills/gitcode-issue-analyzer/scripts/analyze.py --load-raw ./issues_raw.json --classify ./classification.json
 
 # 或指定输出路径
-python3 analyze.py --load-raw ./issues_raw.json --classify ./classification.json -o ./my_report.md
+python3 .claude/skills/gitcode-issue-analyzer/scripts/analyze.py --load-raw ./issues_raw.json --classify ./classification.json -o ./my_report.md
 ```
 
 ## 目录结构
 
 ```
-├── analyze.py         # CLI 入口
-├── gc_wrapper.py      # gc 命令封装
-├── fetcher.py         # issue 获取编排
-├── classifier.py      # AI 分类
-├── reporter.py        # 报告生成
-├── requirements.txt   # 依赖（仅 Python 标准库）
-├── SKILL.md           # Skill 定义
-└── docs/              # 生成的报告
-    └── <target>_<timestamp>.md
+├── README.md
+├── .claude/
+│   └── skills/
+│       └── gitcode-issue-analyzer/
+│           ├── SKILL.md               # Skill 定义
+│           └── scripts/
+│               ├── analyze.py         # CLI 入口
+│               ├── gc_wrapper.py      # gc 命令封装
+│               ├── fetcher.py         # issue 获取编排
+│               ├── classifier.py      # AI 分类
+│               ├── reporter.py        # 报告生成
+│               └── requirements.txt
+├── docs/                              # 生成的报告
+│   └── <target>_<timestamp>.md
+└── .gitignore
 ```
 
 ## 报告示例

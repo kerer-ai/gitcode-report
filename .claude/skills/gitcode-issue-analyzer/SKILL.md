@@ -21,11 +21,12 @@ Execute these steps sequentially. The working directory is the current project d
 
 ### Step 1: Fetch Issues
 
+Run from the project root:
+
 ```
-bash: python3 <skill_dir>/scripts/analyze.py <target> --days <N> -r ./issues_raw.json
+bash: python3 .claude/skills/gitcode-issue-analyzer/scripts/analyze.py <target> --days <N> -r ./issues_raw.json
 ```
 
-- `<skill_dir>` = `~/.claude/skills/gitcode-issue-analyzer`
 - Saves raw issue data to `./issues_raw.json`
 - If gc auth fails, tell user to run `gc auth login`
 
@@ -66,7 +67,7 @@ Write the complete JSON array to `./classification.json`.
 ### Step 3: Generate Report
 
 ```
-bash: python3 <skill_dir>/scripts/analyze.py --load-raw ./issues_raw.json --classify ./classification.json
+bash: python3 .claude/skills/gitcode-issue-analyzer/scripts/analyze.py --load-raw ./issues_raw.json --classify ./classification.json
 ```
 
 This produces a report in `docs/` named `<community>_<timestamp>.md` with a summary section and a Markdown table.
@@ -94,7 +95,7 @@ Print a summary table to the console:
 
 ## Scripts
 
-Located in `scripts/` under the skill directory:
+Located at `.claude/skills/gitcode-issue-analyzer/scripts/` in the project:
 - `analyze.py` — CLI entry point
 - `gc_wrapper.py` — gc CLI wrapper
 - `fetcher.py` — issue fetching (single repo or org-wide, with pagination and concurrency)
