@@ -67,6 +67,10 @@ python3 .claude/skills/gitcode-issue-analyzer/scripts/analyze.py <target> --days
 
 超过 20 条 issue 时，分批次分类，每批约 25 条。可使用并行 sub-agents 加速各批次独立分类。
 
+分类输出要求：
+- `category` **必须**使用英文代码：`ci/cd`、`build`、`testing-infra`、`toolchain`、`dev-environment`、`code-quality`、`deployment`、`containerization`、`monitoring`、`logging`、`alerting`、`dependency-management`、`developer-experience`、`other-infra`。报告生成时会自动转换为中文名。
+- `reason` **必须**使用中文，简短描述（10-20 字），如"流水线编译报错缺少头文件"。
+
 输出格式——每条 issue 一个 JSON 对象：
 ```json
 {"repo":"<仓库名>","number":"<issue号>","is_infra":true/false,"category":"<子分类|null>","reason":"<一句话理由>"}
