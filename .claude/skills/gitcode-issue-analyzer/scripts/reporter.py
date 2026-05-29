@@ -49,6 +49,11 @@ def _truncate_display(text: str, max_width: int) -> str:
     return "".join(result)
 
 
+def _escape_pipe(text: str) -> str:
+    """Escape pipe characters for markdown table cells."""
+    return text.replace("|", "\\|")
+
+
 def _visible_text(cell: str) -> str:
     """Extract visible portion of a markdown link."""
     if cell.startswith("[") and "](" in cell:
@@ -116,10 +121,10 @@ def generate_table(
         rows.append([
             repo_link,
             issue_link,
-            title,
+            _escape_pipe(title),
             cat_display,
-            reason,
-            labels_str,
+            _escape_pipe(reason),
+            _escape_pipe(labels_str),
             iss.get("state", ""),
             iss.get("created_at", "")[:10],
         ])
