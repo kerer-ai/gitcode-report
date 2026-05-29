@@ -77,14 +77,16 @@ def find_latest_reports(docs_dir: str) -> dict[str, dict]:
 
 
 def parse_report(filepath: str) -> dict:
-    """Extract full statistics from a report markdown file."""
+    """Extract full statistics from a report markdown file.
+
+    Handles both new-format reports (with ## 汇总 and ### 按子分类统计 sections)
+    and old-format reports that use a compact single-line summary.
+    """
     stats: dict = {
         "total": 0,
         "infra": 0,
         "categories": {},
         "repos": {},
-        "infra_tooling_tags": 0,
-        "target_name": "",
     }
 
     try:
@@ -94,21 +96,44 @@ def parse_report(filepath: str) -> dict:
         return stats
 
     in_repo_section = False
+    in_category_section = False
+
     for line in content.split("\n"):
         line_stripped = line.strip()
 
+        # Track which sub-section we are in
         if "### 按仓库统计" in line_stripped:
             in_repo_section = True
+            in_category_section = False
             continue
-        elif in_repo_section and line_stripped.startswith("##"):
+        elif "### 按子分类统计" in line_stripped:
+            in_category_section = True
             in_repo_section = False
+            continue
+        elif line_stripped.startswith("## "):
+            in_repo_section = False
+            in_category_section = False
 
+        # Parse repo stats
         if in_repo_section:
+            if line_stripped == "- (无)":
+                continue
             m = REPO_LINK_LINE.match(line_stripped) or REPO_PLAIN_LINE.match(line_stripped)
             if m:
                 stats["repos"][m.group(1)] = int(m.group(2))
             continue
 
+        # Parse category stats
+        if in_category_section:
+            if line_stripped == "- (无)":
+                continue
+            m = STAT_LINE.match(line_stripped)
+            if m:
+                cat = line_stripped.split(":")[0].lstrip("- ").strip()
+                stats["categories"][cat] = int(m.group(1))
+            continue
+
+        # Parse total / infra count (new format with ** markers)
         if line_stripped.startswith("- 总 issues"):
             m = re.search(r"(\d+)", line_stripped)
             if m:
@@ -117,11 +142,21 @@ def parse_report(filepath: str) -> dict:
             m = re.search(r"(\d+)", line_stripped)
             if m:
                 stats["infra"] = int(m.group(1))
-        elif line_stripped.startswith("- ") and ": " in line_stripped:
-            m = STAT_LINE.match(line_stripped)
-            if m:
-                cat = line_stripped.split(":")[0].lstrip("- ").strip()
-                stats["categories"][cat] = int(m.group(1))
+
+        # Fallback: old compact format "总 issues: N, 基础设施类: 0"
+        if "总 issues:" in line_stripped and "基础设施类:" in line_stripped and not line_stripped.startswith("-"):
+            m_total = re.search(r"总 issues:\s*(\d+)", line_stripped)
+            m_infra = re.search(r"基础设施类:\s*(\d+)", line_stripped)
+            if m_total:
+                stats["total"] = int(m_total.group(1))
+            if m_infra:
+                stats["infra"] = int(m_infra.group(1))
+
+    # Also try to get total from the header table as fallback
+    if stats["total"] == 0:
+        m = re.search(r"获取 Issue 总数\s*\|\s*\*?\*?(\d+)\*?\*?", content)
+        if m:
+            stats["total"] = int(m.group(1))
 
     return stats
 
@@ -157,19 +192,6 @@ def _generate_insights(reports: list[dict], totals: dict) -> list[str]:
     """Auto-generate key insights based on data patterns."""
     insights = []
 
-    # Tag coverage insight
-    tag_count = totals.get("infra_tooling_tags", 0)
-    infra_total = totals["infra"]
-    if infra_total > 0:
-        tag_pct = round(tag_count / infra_total * 100, 1) if tag_count >= 0 else 0
-        if tag_pct < 10:
-            uncovered = infra_total - tag_count
-            insights.append(
-                f'<strong>标签严重缺失：</strong>全社区 {infra_total} 个基础设施 issue 中，仅 {tag_count} 个被打上 '
-                f'<code>infra-tooling</code> 标签，标签覆盖率仅 <strong>{tag_pct}%</strong>。'
-                f'AI 分类额外识别出 {uncovered} 个（{round(uncovered/infra_total*100,1)}%）被遗漏的基础设施 issue。'
-            )
-
     # Find dominant category per community
     for r in reports:
         cats = r.get("stats", {}).get("categories", {})
@@ -198,13 +220,14 @@ def _generate_insights(reports: list[dict], totals: dict) -> list[str]:
             )
 
     # Cross-community common issues
+    infra_total = totals["infra"]
     all_cats = Counter()
     for r in reports:
         for cat, count in r.get("stats", {}).get("categories", {}).items():
             all_cats[cat] += count
-    if all_cats:
+    if all_cats and infra_total > 0:
         top2 = all_cats.most_common(2)
-        if len(top2) >= 2:
+        if len(top2) >= 2 and (top2[0][1] + top2[1][1]) > 0:
             insights.append(
                 f'<strong>{dict(ALL_CATEGORIES).get(top2[0][0], top2[0][0])} 与 '
                 f'{dict(ALL_CATEGORIES).get(top2[1][0], top2[1][0])} 是跨社区共性痛点：</strong>'
@@ -227,7 +250,6 @@ def render_html(reports: list[dict], output_path: str) -> None:
     totals = {
         "total": sum(r["stats"]["total"] for r in reports),
         "infra": sum(r["stats"]["infra"] for r in reports),
-        "infra_tooling_tags": 0,
     }
     # Count distinct repos (from report repo stats)
     all_repos: set = set()
@@ -274,9 +296,10 @@ def render_html(reports: list[dict], output_path: str) -> None:
         ratio_val = _pct_val(inf, t)
         n_repos = len(s["repos"])
         rtype = "组织" if r["is_org"] else "仓库"
-        tag_count = s.get("infra_tooling_tags", 0)
-        tag_cov = f"{round(tag_count/inf*100,1)}%" if inf > 0 and tag_count >= 0 else "—"
-        tag_cls = "high" if (inf > 0 and tag_count/inf < 0.05) else ("mid" if inf > 0 and tag_count/inf < 0.2 else "low")
+        # Tag counts are not extractable from reports; show placeholder
+        tag_count_display = "—"
+        tag_cov = "—"
+        tag_cls = "low"
         bar_w = min(int(ratio_val * 2.5), 250)
 
         # Build target link
@@ -293,7 +316,7 @@ def render_html(reports: list[dict], output_path: str) -> None:
         <td>{t}</td>
         <td>{inf}</td>
         <td>{ratio}</td>
-        <td>{tag_count}</td>
+        <td>{tag_count_display}</td>
         <td><span class="tag {tag_cls}">{tag_cov}</span></td>
         <td class="bar-cell"><div class="bar" style="width:{bar_w}px"></div></td>
       </tr>"""
@@ -307,8 +330,8 @@ def render_html(reports: list[dict], output_path: str) -> None:
         <td>{_fmt_num(totals['total'])}</td>
         <td>{totals['infra']}</td>
         <td>{overall_ratio}</td>
-        <td>{totals['infra_tooling_tags']}</td>
-        <td><span class="tag low">{round(totals['infra_tooling_tags']/totals['infra']*100,1) if totals['infra'] > 0 else 0}%</span></td>
+        <td>—</td>
+        <td><span class="tag low">—</span></td>
         <td class="bar-cell"><div class="bar" style="width:{min(int(_pct_val(totals['infra'], totals['total']) * 2.5), 250)}px"></div></td>
       </tr>"""
 

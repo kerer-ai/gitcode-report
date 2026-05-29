@@ -108,7 +108,8 @@ def generate_summary(issues: list[dict], filter_infra: bool = True) -> str:
         filter_infra: If True, only count infrastructure issues.
 
     Returns:
-        Summary text.
+        Summary text. Always includes full structure so downstream parsers
+        can reliably extract statistics from any report.
     """
     total = len(issues)
 
@@ -117,13 +118,10 @@ def generate_summary(issues: list[dict], filter_infra: bool = True) -> str:
     else:
         infra_issues = issues
 
-    if not infra_issues:
-        return f"总 issues: {total}, 基础设施类: 0"
-
     # Count by category
-    categories = Counter(i.get("category", "unknown") for i in infra_issues)
+    categories = Counter(i.get("category", "unknown") for i in infra_issues if i.get("is_infra"))
     # Count by repo
-    repos = Counter(i.get("repo", "unknown") for i in infra_issues)
+    repos = Counter(i.get("repo", "unknown") for i in infra_issues if i.get("is_infra"))
 
     lines = [
         f"## 汇总",
@@ -134,14 +132,20 @@ def generate_summary(issues: list[dict], filter_infra: bool = True) -> str:
         f"### 按子分类统计",
         f"",
     ]
-    for cat, count in categories.most_common():
-        lines.append(f"- {cat}: {count}")
+    if categories:
+        for cat, count in categories.most_common():
+            lines.append(f"- {cat}: {count}")
+    else:
+        lines.append("- (无)")
 
     lines.append("")
     lines.append("### 按仓库统计")
     lines.append("")
-    for repo, count in repos.most_common():
-        lines.append(f"- [{repo}](https://gitcode.com/{repo}/pulls): {count}")
+    if repos:
+        for repo, count in repos.most_common():
+            lines.append(f"- [{repo}](https://gitcode.com/{repo}/pulls): {count}")
+    else:
+        lines.append("- (无)")
 
     return "\n".join(lines)
 
