@@ -32,7 +32,11 @@ bash: python3 .claude/skills/gitcode-issue-analyzer/scripts/analyze.py <target> 
 
 ### 步骤 2：AI 分类
 
+**此步骤必须由大模型亲自完成，严禁使用关键词匹配、正则表达式或任何脚本自动分类。**
+
 读取 `./issues_raw.json`。对每条 issue，**仅**提取 `title` 和 `description` 用于分类（丢弃 labels、author、时间戳、state 等不辅助分类的元数据，节省 token）。
+
+逐条阅读每个 issue 的标题和描述，基于语义理解判断其是否属于基础设施类问题。
 
 分类标准：
 

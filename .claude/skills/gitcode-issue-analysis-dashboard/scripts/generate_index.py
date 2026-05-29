@@ -1,27 +1,99 @@
 #!/usr/bin/env python3
-"""Generate a comprehensive index.html dashboard from the latest GitCode issue analysis reports.
+"""Dashboard HTML renderer for GitCode issue analysis reports.
 
-Scans docs/ for report files named <target>_<timestamp>.md, groups by target,
-selects the latest report for each, aggregates stats across all communities,
-and renders a full-featured HTML dashboard page.
+This script does NOT parse markdown reports. Data extraction and insight
+generation is done by the LLM, which reads reports and produces structured
+JSON. This script only handles:
+
+1. --list    : discover latest report files per target (file I/O only)
+2. --render  : take LLM-produced data JSON and render the styled HTML page
 """
 
+import json
 import os
 import re
 import sys
 from datetime import datetime, timezone
-from collections import Counter
 
 REPORT_PATTERN = re.compile(r"^(.+)_(\d{8}_\d{4})\.md$")
-STAT_LINE = re.compile(
-    r"^- (?:ci/cd|build|testing-infra|toolchain|dev-environment|code-quality|"
-    r"deployment|containerization|monitoring|logging|alerting|"
-    r"dependency-management|developer-experience|other-infra)[：:]\s*\*?\*?(\d+)\*?\*?"
-)
-REPO_LINK_LINE = re.compile(r"^- \[(.+?)\]\(.+?\):\s*(\d+)")
-REPO_PLAIN_LINE = re.compile(r"^- ([^\[][^:]+?):\s*(\d+)$")
-TAG_LINE = re.compile(r"infra-tooling.*?(\d+)")
 
+
+def cmd_list(docs_dir: str) -> int:
+    """Discover latest report file for each target. No content parsing."""
+    if not os.path.isdir(docs_dir):
+        print(f"Error: directory not found: {docs_dir}", file=sys.stderr)
+        return 1
+
+    reports: dict[str, dict] = {}
+    for fname in os.listdir(docs_dir):
+        if fname == "index.html":
+            continue
+        m = REPORT_PATTERN.match(fname)
+        if not m:
+            continue
+        target = m.group(1)
+        ts = m.group(2)
+        if target not in reports or ts > reports[target]["timestamp"]:
+            if target.endswith("_multi"):
+                display = target[:-6]
+                is_org = True
+            elif "_" in target:
+                display = target.replace("_", "/", 1)
+                is_org = False
+            else:
+                display = target
+                is_org = False
+            reports[target] = {
+                "file": fname,
+                "target": display,
+                "is_org": is_org,
+                "timestamp": ts,
+            }
+
+    result = sorted(reports.values(), key=lambda r: r["target"])
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0
+
+
+def cmd_render(data_file: str, output_path: str) -> int:
+    """Render the HTML dashboard from LLM-extracted structured data.
+
+    Expected JSON schema:
+    {
+      "date": "2026-05-29",
+      "totals": {"total": 1351, "infra": 161, "repos": 101},
+      "communities": [
+        {
+          "name": "CANN", "is_org": true, "n_repos": 41,
+          "total": 837, "infra": 74,
+          "categories": {"build": 30, "testing-infra": 10, ...},
+          "report_file": "CANN_multi_20260528_1432.md",
+          "report_ts": "2026-05-28 14:32 UTC"
+        },
+        ...
+      ],
+      "category_totals": {"build": 39, "testing-infra": 37, ...},
+      "insights": [
+        "<strong>标题：</strong>描述内容...",
+        ...
+      ]
+    }
+    """
+    try:
+        with open(data_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, json.JSONDecodeError) as e:
+        print(f"Error reading data file: {e}", file=sys.stderr)
+        return 1
+
+    html = _render_html(data)
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(html)
+    print(f"Index page generated: {output_path}")
+    return 0
+
+
+# -- Category display config --
 ALL_CATEGORIES = [
     ("testing-infra", "测试基础设施"),
     ("build", "构建系统"),
@@ -41,243 +113,46 @@ ALL_CATEGORIES = [
 BAR_COLORS = ["c1", "c2", "c3", "c4", "c5", "c6", "c7", "c1", "c2", "c3", "c4", "c5", "c6"]
 
 
-def find_latest_reports(docs_dir: str) -> dict[str, dict]:
-    """Find the latest report file for each target in docs_dir."""
-    reports: dict[str, dict] = {}
-
-    for fname in os.listdir(docs_dir):
-        if fname == "index.html":
-            continue
-        m = REPORT_PATTERN.match(fname)
-        if not m:
-            continue
-        target = m.group(1)
-        ts = m.group(2)
-
-        if target not in reports or ts > reports[target]["timestamp"]:
-            if target.endswith("_multi"):
-                display = target[:-6]
-                is_org = True
-            elif "_" in target:
-                display = target.replace("_", "/", 1)
-                is_org = False
-            else:
-                display = target
-                is_org = False
-
-            reports[target] = {
-                "filename": fname,
-                "filepath": os.path.join(docs_dir, fname),
-                "timestamp": ts,
-                "target": display,
-                "is_org": is_org,
-            }
-
-    return dict(sorted(reports.items()))
-
-
-def parse_report(filepath: str) -> dict:
-    """Extract full statistics from a report markdown file.
-
-    Handles both new-format reports (with ## 汇总 and ### 按子分类统计 sections)
-    and old-format reports that use a compact single-line summary.
-    """
-    stats: dict = {
-        "total": 0,
-        "infra": 0,
-        "categories": {},
-        "repos": {},
-    }
-
-    try:
-        with open(filepath, "r", encoding="utf-8") as f:
-            content = f.read()
-    except OSError:
-        return stats
-
-    in_repo_section = False
-    in_category_section = False
-
-    for line in content.split("\n"):
-        line_stripped = line.strip()
-
-        # Track which sub-section we are in
-        if "### 按仓库统计" in line_stripped:
-            in_repo_section = True
-            in_category_section = False
-            continue
-        elif "### 按子分类统计" in line_stripped:
-            in_category_section = True
-            in_repo_section = False
-            continue
-        elif line_stripped.startswith("## "):
-            in_repo_section = False
-            in_category_section = False
-
-        # Parse repo stats
-        if in_repo_section:
-            if line_stripped == "- (无)":
-                continue
-            m = REPO_LINK_LINE.match(line_stripped) or REPO_PLAIN_LINE.match(line_stripped)
-            if m:
-                stats["repos"][m.group(1)] = int(m.group(2))
-            continue
-
-        # Parse category stats
-        if in_category_section:
-            if line_stripped == "- (无)":
-                continue
-            m = STAT_LINE.match(line_stripped)
-            if m:
-                cat = line_stripped.split(":")[0].lstrip("- ").strip()
-                stats["categories"][cat] = int(m.group(1))
-            continue
-
-        # Parse total / infra count (new format with ** markers)
-        if line_stripped.startswith("- 总 issues"):
-            m = re.search(r"(\d+)", line_stripped)
-            if m:
-                stats["total"] = int(m.group(1))
-        elif line_stripped.startswith("- 基础设施类"):
-            m = re.search(r"(\d+)", line_stripped)
-            if m:
-                stats["infra"] = int(m.group(1))
-
-        # Fallback: old compact format "总 issues: N, 基础设施类: 0"
-        if "总 issues:" in line_stripped and "基础设施类:" in line_stripped and not line_stripped.startswith("-"):
-            m_total = re.search(r"总 issues:\s*(\d+)", line_stripped)
-            m_infra = re.search(r"基础设施类:\s*(\d+)", line_stripped)
-            if m_total:
-                stats["total"] = int(m_total.group(1))
-            if m_infra:
-                stats["infra"] = int(m_infra.group(1))
-
-    # Also try to get total from the header table as fallback
-    if stats["total"] == 0:
-        m = re.search(r"获取 Issue 总数\s*\|\s*\*?\*?(\d+)\*?\*?", content)
-        if m:
-            stats["total"] = int(m.group(1))
-
-    return stats
-
-
 def _fmt_num(n) -> str:
-    """Format number with commas for thousands."""
     if isinstance(n, int) and n >= 1000:
         return f"{n:,}"
     return str(n)
 
 
 def _pct(part, total) -> str:
-    if total > 0 and isinstance(part, int) and isinstance(total, int):
+    if total > 0:
         return f"{round(part / total * 100, 1)}%"
     return "0%"
 
 
 def _pct_val(part, total) -> float:
-    if total > 0 and isinstance(part, int) and isinstance(total, int):
+    if total > 0:
         return round(part / total * 100, 1)
     return 0.0
 
 
-def _ts_display(ts: str) -> str:
-    try:
-        dt = datetime.strptime(ts, "%Y%m%d_%H%M")
-        return dt.strftime("%Y-%m-%d %H:%M UTC")
-    except ValueError:
-        return ts
+def _render_html(data: dict) -> str:
+    date_str = data.get("date", datetime.now(timezone.utc).strftime("%Y-%m-%d"))
+    totals = data.get("totals", {})
+    communities = data.get("communities", [])
+    category_totals = data.get("category_totals", {})
+    insights = data.get("insights", [])
 
-
-def _generate_insights(reports: list[dict], totals: dict) -> list[str]:
-    """Auto-generate key insights based on data patterns."""
-    insights = []
-
-    # Find dominant category per community
-    for r in reports:
-        cats = r.get("stats", {}).get("categories", {})
-        if cats:
-            top_cat = max(cats, key=cats.get)
-            top_count = cats[top_cat]
-            infra = r.get("stats", {}).get("infra", 0)
-            if infra > 0 and top_count > 0:
-                cat_pct = round(top_count / infra * 100, 1)
-                if cat_pct >= 30:
-                    cat_label = dict(ALL_CATEGORIES).get(top_cat, top_cat)
-                    insights.append(
-                        f'<strong>{r["target"]} {cat_label}问题集中：</strong>'
-                        f'该社区基础设施 issue 中，<strong>{cat_label}（{top_cat}）</strong>'
-                        f'占比达 {cat_pct}%（{top_count}/{infra}）。'
-                    )
-
-    # Low infrastructure
-    for r in reports:
-        infra = r.get("stats", {}).get("infra", 0)
-        total = r.get("stats", {}).get("total", 0)
-        if total >= 10 and infra == 0:
-            insights.append(
-                f'<strong>{r["target"]} 规模小但无基础设施关注：</strong>'
-                f'{total} 个 issue 中无基础设施类，该社区可能缺乏 CI/测试基础设施方面的投入。'
-            )
-
-    # Cross-community common issues
-    infra_total = totals["infra"]
-    all_cats = Counter()
-    for r in reports:
-        for cat, count in r.get("stats", {}).get("categories", {}).items():
-            all_cats[cat] += count
-    if all_cats and infra_total > 0:
-        top2 = all_cats.most_common(2)
-        if len(top2) >= 2 and (top2[0][1] + top2[1][1]) > 0:
-            insights.append(
-                f'<strong>{dict(ALL_CATEGORIES).get(top2[0][0], top2[0][0])} 与 '
-                f'{dict(ALL_CATEGORIES).get(top2[1][0], top2[1][0])} 是跨社区共性痛点：</strong>'
-                f'两者合计占全部基础设施 issue 的 {round((top2[0][1]+top2[1][1])/infra_total*100, 1)}%'
-                f'（{top2[0][1]}+{top2[1][1]}/{infra_total}），多个仓库均存在相关问题。'
-            )
-
-    return insights[:5]
-
-
-def render_html(reports: list[dict], output_path: str) -> None:
-    """Render the comprehensive dashboard index.html page."""
-    date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    if not reports:
-        _write_empty(output_path, now_str)
-        return
-
-    # -- Aggregate totals --
-    totals = {
-        "total": sum(r["stats"]["total"] for r in reports),
-        "infra": sum(r["stats"]["infra"] for r in reports),
-    }
-    # Count distinct repos (from report repo stats)
-    all_repos: set = set()
-    for r in reports:
-        all_repos.update(r["stats"]["repos"].keys())
-    totals["repos"] = len(all_repos)
-
-    # Merge categories across all reports
-    merged_cats: Counter = Counter()
-    for r in reports:
-        for cat, count in r["stats"].get("categories", {}).items():
-            merged_cats[cat] += count
-
-    overall_ratio = _pct(totals["infra"], totals["total"])
+    overall_ratio = _pct(totals.get("infra", 0), totals.get("total", 0))
 
     # -- Summary cards --
     summary_cards = f"""
 <div class="summary-grid">
   <div class="summary-card total">
-    <div class="value">{_fmt_num(totals['total'])}</div>
+    <div class="value">{_fmt_num(totals.get('total', 0))}</div>
     <div class="label">总 Issues（7天内）</div>
   </div>
   <div class="summary-card infra">
-    <div class="value">{totals['infra']}</div>
+    <div class="value">{totals.get('infra', 0)}</div>
     <div class="label">基础设施类 Issues</div>
   </div>
   <div class="summary-card repos">
-    <div class="value">{totals['repos']}</div>
+    <div class="value">{totals.get('repos', 0)}</div>
     <div class="label">覆盖仓库数</div>
   </div>
   <div class="summary-card ratio">
@@ -288,25 +163,21 @@ def render_html(reports: list[dict], output_path: str) -> None:
 
     # -- Community overview table --
     comm_rows = ""
-    for r in reports:
-        s = r["stats"]
-        t = s["total"]
-        inf = s["infra"]
+    for c in communities:
+        name = c["name"]
+        is_org = c.get("is_org", False)
+        n_repos = c.get("n_repos", 0)
+        t = c.get("total", 0)
+        inf = c.get("infra", 0)
         ratio = _pct(inf, t)
         ratio_val = _pct_val(inf, t)
-        n_repos = len(s["repos"])
-        rtype = "组织" if r["is_org"] else "仓库"
-        # Tag counts are not extractable from reports; show placeholder
-        tag_count_display = "—"
-        tag_cov = "—"
-        tag_cls = "low"
+        rtype = "组织" if is_org else "仓库"
         bar_w = min(int(ratio_val * 2.5), 250)
 
-        # Build target link
-        if r["is_org"]:
-            tgt_link = f'<a href="https://gitcode.com/{r["target"]}" style="color:#0f3460;text-decoration:none;" target="_blank">{r["target"]}</a>'
+        if is_org:
+            tgt_link = f'<a href="https://gitcode.com/{name}" style="color:#0f3460;text-decoration:none;" target="_blank">{name}</a>'
         else:
-            tgt_link = f'<a href="https://gitcode.com/{r["target"]}/pulls" style="color:#0f3460;text-decoration:none;" target="_blank">{r["target"]}</a>'
+            tgt_link = f'<a href="https://gitcode.com/{name}/pulls" style="color:#0f3460;text-decoration:none;" target="_blank">{name}</a>'
 
         comm_rows += f"""
       <tr>
@@ -316,23 +187,20 @@ def render_html(reports: list[dict], output_path: str) -> None:
         <td>{t}</td>
         <td>{inf}</td>
         <td>{ratio}</td>
-        <td>{tag_count_display}</td>
-        <td><span class="tag {tag_cls}">{tag_cov}</span></td>
         <td class="bar-cell"><div class="bar" style="width:{bar_w}px"></div></td>
       </tr>"""
 
     # Total row
+    total_bar = min(int(_pct_val(totals.get("infra", 0), totals.get("total", 1)) * 2.5), 250)
     comm_rows += f"""
       <tr style="font-weight:700; background:#fafbfc;">
         <td class="community-name">合计</td>
         <td>—</td>
-        <td>{totals['repos']}</td>
-        <td>{_fmt_num(totals['total'])}</td>
-        <td>{totals['infra']}</td>
+        <td>{totals.get('repos', 0)}</td>
+        <td>{_fmt_num(totals.get('total', 0))}</td>
+        <td>{totals.get('infra', 0)}</td>
         <td>{overall_ratio}</td>
-        <td>—</td>
-        <td><span class="tag low">—</span></td>
-        <td class="bar-cell"><div class="bar" style="width:{min(int(_pct_val(totals['infra'], totals['total']) * 2.5), 250)}px"></div></td>
+        <td class="bar-cell"><div class="bar" style="width:{total_bar}px"></div></td>
       </tr>"""
 
     community_table = f"""
@@ -348,8 +216,6 @@ def render_html(reports: list[dict], output_path: str) -> None:
         <th>总 Issues</th>
         <th>基础设施类</th>
         <th>占比</th>
-        <th>infra-tooling 标签数</th>
-        <th>标签覆盖率</th>
         <th class="bar-cell">基础设施占比</th>
       </tr>
     </thead>
@@ -360,29 +226,29 @@ def render_html(reports: list[dict], output_path: str) -> None:
 </div>"""
 
     # -- Category distribution --
-    # Bar chart (all communities merged)
-    max_cat = max(merged_cats.values()) if merged_cats else 1
+    max_cat = max(category_totals.values()) if category_totals else 1
     bar_items = ""
     for i, (cat_key, cat_label) in enumerate(ALL_CATEGORIES):
-        count = merged_cats.get(cat_key, 0)
+        count = category_totals.get(cat_key, 0)
         if count == 0:
             continue
         pct = round(count / max_cat * 100)
         color = BAR_COLORS[i % len(BAR_COLORS)]
         bar_items += f"""
         <div class="bar-item">
-          <div class="bar-label">{cat_label} ({cat_key})</div>
+          <div class="bar-label">{cat_label}</div>
           <div class="bar-track"><div class="bar-fill {color}" style="width:{max(pct, 5)}%">{count}</div></div>
         </div>"""
 
-    # Cross-community category table
-    short_cats = [c for c, _ in ALL_CATEGORIES[:7]]  # first 7 categories
-    cat_table_header = "<th>社区</th>" + "".join(f"<th>{dict(ALL_CATEGORIES).get(c, c).replace('-', '<br>-')}</th>" for c in short_cats)
+    short_cats = [c for c, _ in ALL_CATEGORIES[:7]]
+    cat_table_header = "<th>社区</th>" + "".join(
+        f"<th>{dict(ALL_CATEGORIES).get(c, c).replace('-', '<br>-')}</th>" for c in short_cats
+    )
     cat_table_rows = ""
-    for r in reports:
-        cats = r["stats"].get("categories", {})
-        cells = "".join(f"<td>{cats.get(c, 0)}</td>" for c in short_cats)
-        cat_table_rows += f'<tr><td class="community-name">{r["target"]}</td>{cells}</tr>'
+    for c in communities:
+        cats = c.get("categories", {})
+        cells = "".join(f"<td>{cats.get(cat, 0)}</td>" for cat in short_cats)
+        cat_table_rows += f'<tr><td class="community-name">{c["name"]}</td>{cells}</tr>'
 
     category_section = f"""
 <div class="chart-row">
@@ -393,7 +259,6 @@ def render_html(reports: list[dict], output_path: str) -> None:
       </div>
     </div>
   </div>
-
   <div class="chart-box">
     <div class="section" style="padding:20px;">
       <h2>各社区分类构成</h2>
@@ -409,24 +274,24 @@ def render_html(reports: list[dict], output_path: str) -> None:
 </div>"""
 
     # -- Insights --
-    insights = _generate_insights(reports, totals)
     insight_html = ""
     for ins in insights:
         insight_html += f'\n  <div class="insight-box">{ins}\n  </div>'
 
     # -- Detail report links --
     report_links = ""
-    for r in reports:
-        s = r["stats"]
-        n_repos = len(s["repos"])
-        desc = f"{r['target']}"
-        if r["is_org"] and n_repos > 0:
+    for c in communities:
+        name = c["name"]
+        n_repos = c.get("n_repos", 0)
+        desc = name
+        if c.get("is_org") and n_repos > 0:
             desc += f" ({n_repos} repos)"
+        rf = c.get("report_file", "")
         report_links += f"""
-      <tr><td class="community-name">{desc}</td><td><a href="viewer.html?file={r['filename']}">{r['filename']}</a></td><td>{s['total']}</td><td>{s['infra']}</td><td>{_ts_display(r['timestamp'])}</td></tr>"""
+      <tr><td class="community-name">{desc}</td><td><a href="viewer.html?file={rf}">{rf}</a></td><td>{c.get('total', 0)}</td><td>{c.get('infra', 0)}</td><td>{c.get('report_ts', '')}</td></tr>"""
 
-    # -- Final HTML --
-    html = f"""<!DOCTYPE html>
+    # -- Full page --
+    return f"""<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -465,10 +330,9 @@ def render_html(reports: list[dict], output_path: str) -> None:
 
   .chart-row {{ display: flex; gap: 24px; margin-bottom: 24px; flex-wrap: wrap; }}
   .chart-box {{ flex: 1; min-width: 280px; max-width: 100%; }}
-  .chart-box h3 {{ font-size: 1.05em; color: #555; margin-bottom: 12px; }}
 
   .bar-chart .bar-item {{ display: flex; align-items: center; margin-bottom: 8px; }}
-  .bar-chart .bar-label {{ width: 160px; font-size: 0.9em; color: #555; text-align: right; padding-right: 12px; flex-shrink: 0; }}
+  .bar-chart .bar-label {{ width: 140px; font-size: 0.85em; color: #555; text-align: right; padding-right: 12px; flex-shrink: 0; }}
   .bar-chart .bar-track {{ flex: 1; background: #f0f2f5; border-radius: 4px; height: 22px; position: relative; overflow: hidden; }}
   .bar-chart .bar-fill {{ height: 100%; border-radius: 4px; display: flex; align-items: center; padding-left: 8px; font-size: 0.8em; color: #fff; font-weight: 600; }}
   .bar-chart .bar-fill.c1 {{ background: #e94560; }}
@@ -491,7 +355,7 @@ def render_html(reports: list[dict], output_path: str) -> None:
 
   @media (max-width: 768px) {{
     .chart-row {{ flex-direction: column; }}
-    .bar-chart .bar-label {{ width: 120px; font-size: 0.8em; }}
+    .bar-chart .bar-label {{ width: 100px; font-size: 0.75em; }}
   }}
 </style>
 </head>
@@ -545,54 +409,31 @@ def render_html(reports: list[dict], output_path: str) -> None:
 </body>
 </html>"""
 
-    with open(output_path, "w", encoding="utf-8") as f:
-        f.write(html)
-
-
-def _write_empty(output_path: str, now_str: str) -> None:
-    """Generate an empty placeholder page."""
-    html = f"""<!DOCTYPE html>
-<html lang="zh-CN">
-<head><meta charset="UTF-8"><title>社区基础设施 VOC 分析报告</title></head>
-<body style="font-family:sans-serif;text-align:center;padding:80px 20px;color:#999;">
-  <h1>社区基础设施 VOC 分析报告</h1>
-  <p>暂无分析报告。运行 gitcode-issue-analyzer 生成报告后刷新此页面。</p>
-  <p style="font-size:0.85em;">{now_str}</p>
-</body>
-</html>"""
-    with open(output_path, "w", encoding="utf-8") as f:
-        f.write(html)
-
 
 def main() -> int:
-    docs_dir = sys.argv[1] if len(sys.argv) > 1 else "docs"
-    output = sys.argv[2] if len(sys.argv) > 2 else os.path.join(docs_dir, "index.html")
+    import argparse
+    parser = argparse.ArgumentParser(description="GitCode Dashboard Renderer")
+    sub = parser.add_subparsers(dest="command")
 
-    if not os.path.isdir(docs_dir):
-        print(f"Error: docs directory not found: {docs_dir}")
+    list_p = sub.add_parser("list", help="Discover latest report files")
+    list_p.add_argument("docs_dir", nargs="?", default="docs")
+
+    render_p = sub.add_parser("render", help="Render HTML from LLM data JSON")
+    render_p.add_argument("data_file", help="Path to LLM-produced data JSON")
+    render_p.add_argument("output", nargs="?", default=None)
+
+    args = parser.parse_args()
+
+    if args.command == "list":
+        return cmd_list(args.docs_dir)
+    elif args.command == "render":
+        output = args.output or os.path.join(
+            os.path.dirname(args.data_file), "index.html"
+        )
+        return cmd_render(args.data_file, output)
+    else:
+        parser.print_help()
         return 1
-
-    latest = find_latest_reports(docs_dir)
-
-    if not latest:
-        print("No reports found in docs/")
-        _write_empty(output, datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"))
-        print(f"Empty index page generated: {output}")
-        return 0
-
-    print(f"Found {len(latest)} target(s) with reports:")
-    reports = []
-    for target, info in sorted(latest.items()):
-        stats = parse_report(info["filepath"])
-        info["stats"] = stats
-        reports.append(info)
-        n_repos = len(stats["repos"])
-        print(f"  {info['target']}: {info['filename']} "
-              f"(total={stats['total']}, infra={stats['infra']}, repos={n_repos})")
-
-    render_html(reports, output)
-    print(f"\nIndex page generated: {output}")
-    return 0
 
 
 if __name__ == "__main__":

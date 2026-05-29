@@ -37,10 +37,9 @@
 
   .chart-row { display: flex; gap: 24px; margin-bottom: 24px; flex-wrap: wrap; }
   .chart-box { flex: 1; min-width: 280px; max-width: 100%; }
-  .chart-box h3 { font-size: 1.05em; color: #555; margin-bottom: 12px; }
 
   .bar-chart .bar-item { display: flex; align-items: center; margin-bottom: 8px; }
-  .bar-chart .bar-label { width: 160px; font-size: 0.9em; color: #555; text-align: right; padding-right: 12px; flex-shrink: 0; }
+  .bar-chart .bar-label { width: 140px; font-size: 0.85em; color: #555; text-align: right; padding-right: 12px; flex-shrink: 0; }
   .bar-chart .bar-track { flex: 1; background: #f0f2f5; border-radius: 4px; height: 22px; position: relative; overflow: hidden; }
   .bar-chart .bar-fill { height: 100%; border-radius: 4px; display: flex; align-items: center; padding-left: 8px; font-size: 0.8em; color: #fff; font-weight: 600; }
   .bar-chart .bar-fill.c1 { background: #e94560; }
@@ -63,7 +62,7 @@
 
   @media (max-width: 768px) {
     .chart-row { flex-direction: column; }
-    .bar-chart .bar-label { width: 120px; font-size: 0.8em; }
+    .bar-chart .bar-label { width: 100px; font-size: 0.75em; }
   }
 </style>
 </head>
@@ -87,7 +86,7 @@
     <div class="label">基础设施类 Issues</div>
   </div>
   <div class="summary-card repos">
-    <div class="value">49</div>
+    <div class="value">58</div>
     <div class="label">覆盖仓库数</div>
   </div>
   <div class="summary-card ratio">
@@ -109,12 +108,19 @@
         <th>总 Issues</th>
         <th>基础设施类</th>
         <th>占比</th>
-        <th>infra-tooling 标签数</th>
-        <th>标签覆盖率</th>
         <th class="bar-cell">基础设施占比</th>
       </tr>
     </thead>
     <tbody>
+      <tr>
+        <td class="community-name"><a href="https://gitcode.com/CANN" style="color:#0f3460;text-decoration:none;" target="_blank">CANN</a></td>
+        <td>组织</td>
+        <td>24</td>
+        <td>837</td>
+        <td>74</td>
+        <td>8.8%</td>
+        <td class="bar-cell"><div class="bar" style="width:22px"></div></td>
+      </tr>
       <tr>
         <td class="community-name"><a href="https://gitcode.com/Ascend" style="color:#0f3460;text-decoration:none;" target="_blank">Ascend</a></td>
         <td>组织</td>
@@ -122,8 +128,6 @@
         <td>397</td>
         <td>79</td>
         <td>19.9%</td>
-        <td>—</td>
-        <td><span class="tag low">—</span></td>
         <td class="bar-cell"><div class="bar" style="width:49px"></div></td>
       </tr>
       <tr>
@@ -133,41 +137,24 @@
         <td>90</td>
         <td>12</td>
         <td>13.3%</td>
-        <td>—</td>
-        <td><span class="tag low">—</span></td>
         <td class="bar-cell"><div class="bar" style="width:33px"></div></td>
       </tr>
       <tr>
         <td class="community-name"><a href="https://gitcode.com/BoostKit" style="color:#0f3460;text-decoration:none;" target="_blank">BoostKit</a></td>
         <td>组织</td>
-        <td>—</td>
+        <td>8</td>
         <td>19</td>
         <td>0</td>
         <td>0.0%</td>
-        <td>—</td>
-        <td><span class="tag low">—</span></td>
         <td class="bar-cell"><div class="bar" style="width:0px"></div></td>
-      </tr>
-      <tr>
-        <td class="community-name"><a href="https://gitcode.com/CANN" style="color:#0f3460;text-decoration:none;" target="_blank">CANN</a></td>
-        <td>组织</td>
-        <td>24</td>
-        <td>837</td>
-        <td>74</td>
-        <td>8.8%</td>
-        <td>—</td>
-        <td><span class="tag low">—</span></td>
-        <td class="bar-cell"><div class="bar" style="width:22px"></div></td>
       </tr>
       <tr style="font-weight:700; background:#fafbfc;">
         <td class="community-name">合计</td>
         <td>—</td>
-        <td>49</td>
+        <td>58</td>
         <td>1,343</td>
         <td>165</td>
         <td>12.3%</td>
-        <td>—</td>
-        <td><span class="tag low">—</span></td>
         <td class="bar-cell"><div class="bar" style="width:30px"></div></td>
       </tr>
     </tbody>
@@ -182,60 +169,59 @@
       <h2>基础设施子分类分布（全社区）</h2>
       <div class="bar-chart">
         <div class="bar-item">
-          <div class="bar-label">测试基础设施 (testing-infra)</div>
+          <div class="bar-label">测试基础设施</div>
           <div class="bar-track"><div class="bar-fill c1" style="width:66%">29</div></div>
         </div>
         <div class="bar-item">
-          <div class="bar-label">构建系统 (build)</div>
+          <div class="bar-label">构建系统</div>
           <div class="bar-track"><div class="bar-fill c2" style="width:100%">44</div></div>
         </div>
         <div class="bar-item">
-          <div class="bar-label">工具链 (toolchain)</div>
+          <div class="bar-label">工具链</div>
           <div class="bar-track"><div class="bar-fill c3" style="width:27%">12</div></div>
         </div>
         <div class="bar-item">
-          <div class="bar-label">持续集成 (ci/cd)</div>
+          <div class="bar-label">持续集成</div>
           <div class="bar-track"><div class="bar-fill c4" style="width:66%">29</div></div>
         </div>
         <div class="bar-item">
-          <div class="bar-label">开发环境 (dev-environment)</div>
+          <div class="bar-label">开发环境</div>
           <div class="bar-track"><div class="bar-fill c5" style="width:32%">14</div></div>
         </div>
         <div class="bar-item">
-          <div class="bar-label">代码质量工具 (code-quality)</div>
+          <div class="bar-label">代码质量工具</div>
           <div class="bar-track"><div class="bar-fill c6" style="width:20%">9</div></div>
         </div>
         <div class="bar-item">
-          <div class="bar-label">开发体验 (developer-experience)</div>
+          <div class="bar-label">开发体验</div>
           <div class="bar-track"><div class="bar-fill c7" style="width:27%">12</div></div>
         </div>
         <div class="bar-item">
-          <div class="bar-label">监控 (monitoring)</div>
+          <div class="bar-label">监控</div>
           <div class="bar-track"><div class="bar-fill c1" style="width:18%">8</div></div>
         </div>
         <div class="bar-item">
-          <div class="bar-label">依赖管理 (dependency-management)</div>
+          <div class="bar-label">依赖管理</div>
           <div class="bar-track"><div class="bar-fill c2" style="width:11%">5</div></div>
         </div>
         <div class="bar-item">
-          <div class="bar-label">日志 (logging)</div>
+          <div class="bar-label">日志</div>
           <div class="bar-track"><div class="bar-fill c3" style="width:5%">2</div></div>
         </div>
         <div class="bar-item">
-          <div class="bar-label">容器化 (containerization)</div>
+          <div class="bar-label">容器化</div>
           <div class="bar-track"><div class="bar-fill c5" style="width:5%">1</div></div>
         </div>
       </div>
     </div>
   </div>
-
   <div class="chart-box">
     <div class="section" style="padding:20px;">
       <h2>各社区分类构成</h2>
       <div class="table-wrap">
       <table class="community-table category-table">
         <thead><tr><th>社区</th><th>测试基础设施</th><th>构建系统</th><th>工具链</th><th>持续集成</th><th>开发环境</th><th>代码质量工具</th><th>开发体验</th></tr></thead>
-        <tbody><tr><td class="community-name">Ascend</td><td>16</td><td>12</td><td>2</td><td>18</td><td>1</td><td>4</td><td>11</td></tr><tr><td class="community-name">Ascend/pytorch</td><td>3</td><td>2</td><td>0</td><td>6</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="community-name">BoostKit</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="community-name">CANN</td><td>10</td><td>30</td><td>10</td><td>5</td><td>13</td><td>5</td><td>1</td></tr>
+        <tbody><tr><td class="community-name">CANN</td><td>10</td><td>30</td><td>10</td><td>5</td><td>13</td><td>5</td><td>1</td></tr><tr><td class="community-name">Ascend</td><td>16</td><td>12</td><td>2</td><td>18</td><td>1</td><td>4</td><td>11</td></tr><tr><td class="community-name">Ascend/pytorch</td><td>3</td><td>2</td><td>0</td><td>6</td><td>0</td><td>0</td><td>0</td></tr><tr><td class="community-name">BoostKit</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
         </tbody>
       </table>
       </div>
@@ -245,13 +231,15 @@
 
 <div class="section">
   <h2>关键洞察</h2>
-  <div class="insight-box"><strong>Ascend/pytorch 持续集成问题集中：</strong>该社区基础设施 issue 中，<strong>持续集成（ci/cd）</strong>占比达 50.0%（6/12）。
+  <div class="insight-box"><strong>CI/CD 是 Ascend/pytorch 最突出问题：</strong>12 个基础设施 issue 中 ci/cd 占 6 个（50%），涉及流水线编译报错、CI 环境 ACL 头文件缺失、门禁 x86 覆盖不足、workflow 定时策略调整等。CI 稳定性是该仓库最紧迫的基础设施改进方向。
   </div>
-  <div class="insight-box"><strong>CANN 构建系统问题集中：</strong>该社区基础设施 issue 中，<strong>构建系统（build）</strong>占比达 40.5%（30/74）。
+  <div class="insight-box"><strong>CANN 构建系统问题高度集中：</strong>74 个基础设施 issue 中 build 类占 30 个（40.5%），远超其他分类。主要涉及 CMake 配置、编译依赖管理、UT 编译失败、源码编译包输出等。该组织在构建系统的标准化和自动化方面有较大改进空间。
   </div>
-  <div class="insight-box"><strong>BoostKit 规模小但无基础设施关注：</strong>19 个 issue 中无基础设施类，该社区可能缺乏 CI/测试基础设施方面的投入。
+  <div class="insight-box"><strong>Ascend 组织基础设施需求多样化：</strong>79 个 issue 分布在 11 个子分类中，覆盖 25 个仓库。除 ci/cd（18）和 testing-infra（16）外，developer-experience（11）和 monitoring（8）也占较高比例，反映出组织级工具链的复杂性和多维度改进需求。
   </div>
-  <div class="insight-box"><strong>构建系统 与 持续集成 是跨社区共性痛点：</strong>两者合计占全部基础设施 issue 的 44.2%（44+29/165），多个仓库均存在相关问题。
+  <div class="insight-box"><strong>BoostKit 缺乏基础设施投入关注：</strong>19 个 issue 全部为功能需求、CVE 漏洞和文档反馈，无任何基础设施类问题。该社区规模虽小，但完全缺乏 CI/测试/构建类 issue 可能意味着基础设施问题未被有效识别或报告。
+  </div>
+  <div class="insight-box"><strong>测试基础设施是跨社区共性痛点：</strong>testing-infra 全社区合计 29 个（占基础设施类 17.6%），在 CANN、Ascend、Ascend/pytorch 三个社区中均位列前三。测试用例同步移植、NPU 适配 patch 覆盖不足、门禁用例拆分等是高频主题。
   </div>
 </div>
 
@@ -260,10 +248,10 @@
   <table class="community-table">
     <thead><tr><th>社区</th><th>报告文件</th><th>总 Issues</th><th>基础设施类</th><th>生成时间</th></tr></thead>
     <tbody>
+      <tr><td class="community-name">CANN (24 repos)</td><td><a href="viewer.html?file=CANN_multi_20260528_1432.md">CANN_multi_20260528_1432.md</a></td><td>837</td><td>74</td><td>2026-05-28 14:32 UTC</td></tr>
       <tr><td class="community-name">Ascend (25 repos)</td><td><a href="viewer.html?file=Ascend_multi_20260529_0321.md">Ascend_multi_20260529_0321.md</a></td><td>397</td><td>79</td><td>2026-05-29 03:21 UTC</td></tr>
       <tr><td class="community-name">Ascend/pytorch</td><td><a href="viewer.html?file=Ascend_pytorch_20260529_0304.md">Ascend_pytorch_20260529_0304.md</a></td><td>90</td><td>12</td><td>2026-05-29 03:04 UTC</td></tr>
-      <tr><td class="community-name">BoostKit</td><td><a href="viewer.html?file=BoostKit_multi_20260528_1226.md">BoostKit_multi_20260528_1226.md</a></td><td>19</td><td>0</td><td>2026-05-28 12:26 UTC</td></tr>
-      <tr><td class="community-name">CANN (24 repos)</td><td><a href="viewer.html?file=CANN_multi_20260528_1432.md">CANN_multi_20260528_1432.md</a></td><td>837</td><td>74</td><td>2026-05-28 14:32 UTC</td></tr>
+      <tr><td class="community-name">BoostKit (8 repos)</td><td><a href="viewer.html?file=BoostKit_multi_20260528_1226.md">BoostKit_multi_20260528_1226.md</a></td><td>19</td><td>0</td><td>2026-05-28 12:26 UTC</td></tr>
     </tbody>
   </table>
 </div>
