@@ -1,74 +1,73 @@
 ---
 name: gitcode-issue-analysis-dashboard
-description: Generate an HTML dashboard index page from existing GitCode issue analysis MD reports. The LLM reads reports, understands content, extracts structured data, generates insights, and renders the dashboard. Triggers when user asks to update the dashboard, generate an overview page, build an index, or refresh the analysis summary.
+description: 基于已有的 GitCode issue 分析 MD 报告生成 HTML Dashboard 综合页面。LLM 阅读报告、理解内容、提取结构化数据、生成洞察，脚本仅负责 HTML/CSS 渲染。当用户要更新 Dashboard、生成总览页面、构建索引或刷新分析汇总时触发。
 ---
 
-# GitCode Issue Analysis Dashboard
+# GitCode Issue 分析 Dashboard
 
-Generate a comprehensive HTML dashboard from existing MD reports produced by
-`gitcode-issue-analyzer`. The LLM reads and understands report content — the
-script only handles HTML/CSS rendering.
+基于 `gitcode-issue-analyzer` 产出的 MD 报告生成综合 HTML Dashboard。
+LLM 负责阅读和理解报告内容——脚本仅处理 HTML/CSS 渲染。
 
-This skill consumes MD reports, not raw issue data. Run `gitcode-issue-analyzer`
-first if fresh reports are needed.
+此 Skill 消费 MD 报告，不处理原始 issue 数据。如需最新报告，先运行
+`gitcode-issue-analyzer`。
 
-## Architecture
+## 架构
 
-Two LLM-driven capabilities:
+两个核心能力均由大模型驱动：
 
-1. **Data understanding** — LLM reads MD reports, comprehends statistics and
-   patterns semantically, extracts structured data, generates meaningful insights.
-2. **Workflow scheduling** — LLM orchestrates discovery → reading → extraction → rendering.
+1. **数据理解** — LLM 直接阅读 MD 报告，语义层面理解统计数据和模式，
+   提取结构化数据，生成有深度的洞察。
+2. **工作流调度** — LLM 编排发现 → 阅读 → 提取 → 渲染的全流程。
 
-The `generate_index.py` script only handles:
-- File discovery (`list` — find latest report per target)
-- HTML/CSS rendering (`render` — from LLM-provided JSON)
+`generate_index.py` 脚本仅处理：
+- 文件发现（`list` — 找出每个 target 的最新报告）
+- HTML/CSS 渲染（`render` — 基于 LLM 产出的 JSON）
 
-## Workflow
+## 工作流
 
-### Step 1: Discover Latest Reports
+### 步骤 1：发现最新报告
 
 ```bash
 python3 .claude/skills/gitcode-issue-analysis-dashboard/scripts/generate_index.py list docs/
 ```
 
-Outputs JSON listing each target's latest report file. **No content parsing.**
+输出 JSON 列出每个 target 的最新报告文件。**不做内容解析。**
 
-If the user also wants fresh analysis first, invoke `gitcode-issue-analyzer`
-for each target before this step.
+如用户需要最新的分析数据，先调用 `gitcode-issue-analyzer` 对各 target
+完成分析后再执行此步骤。
 
-### Step 2: LLM Reads and Understands Reports
+### 步骤 2：LLM 阅读理解报告
 
-**This step MUST be done by the LLM. Do NOT use regex or script-based parsing.**
+**此步骤必须由 LLM 完成。严禁使用正则或脚本解析报告内容。**
 
-Read each report file from Step 1. Focus on:
-- `## 汇总` — total issues, infrastructure count
-- `### 按子分类统计` — category breakdown
-- `### 按仓库统计` — per-repository distribution
-- Header table — `获取 Issue 总数` as fallback
-- `## 详情` table — individual issue entries for pattern discovery
+依次读取步骤 1 列出的每份 MD 报告，重点关注：
+- `## 汇总` — 总 issue 数、基础设施数
+- `### 按子分类统计` — 各子分类数量分布
+- `### 按仓库统计` — 各仓库分布
+- Header 表格 — `获取 Issue 总数` 作为 total 的 fallback
+- `## 详情` 表格 — 具体 issue 条目，用于发现模式
 
-After reading all reports:
+阅读完所有报告后完成三项工作：
 
-1. **Extract structured data** per community:
-   - `name`, `is_org`, `n_repos`, `total`, `infra`
-   - `categories`: category → count mapping
-   - `report_file`, `report_ts`
+1. **提取结构化数据** — 每个社区/仓库：
+   - `name`、`is_org`、`n_repos`、`total`、`infra`
+   - `categories`：子分类 → 数量映射
+   - `report_file`、`report_ts`
 
-2. **Compute cross-community totals**:
-   - Aggregate `total`, `infra`
-   - Count distinct repos
-   - Merge `category_totals`
+2. **计算跨社区汇总**：
+   - 汇总 `total`、`infra`
+   - 去重统计仓库数
+   - 合并 `category_totals`
 
-3. **Generate 3-5 insights** based on semantic understanding:
-   - Identify concentrated problem areas (e.g. "build is 40% of CANN infra issues")
-   - Compare communities
-   - Note anomalies
-   - Format: `<strong>标题：</strong>具体分析...`
+3. **生成 3-5 条洞察** — 基于对数据的语义理解：
+   - 识别集中问题（如"build 类占 CANN 基础设施 issue 的 40%"）
+   - 跨社区对比（如"Ascend/pytorch 的 testing-infra 占比显著高于其他社区"）
+   - 异常发现（如"BoostKit 19 个 issue 中零基础设施类"）
+   - 格式：`<strong>标题：</strong>具体分析...`
 
-### Step 3: Write Structured Data
+### 步骤 3：写入结构化数据
 
-Write extracted data to `./dashboard_data.json`:
+将提取的数据写入 `./dashboard_data.json`：
 
 ```json
 {
@@ -88,24 +87,26 @@ Write extracted data to `./dashboard_data.json`:
 }
 ```
 
-### Step 4: Render HTML Dashboard
+### 步骤 4：渲染 HTML Dashboard
 
 ```bash
 python3 .claude/skills/gitcode-issue-analysis-dashboard/scripts/generate_index.py render ./dashboard_data.json docs/index.html
 ```
 
-### Step 5: Output Summary
+脚本仅负责 HTML/CSS 样式和布局——所有数据和洞察来自 LLM 产出的 JSON。
+
+### 步骤 5：输出总结
 
 ```
-## Dashboard Updated
+## Dashboard 已更新
 
-| Metric | Value |
-|--------|-------|
-| Communities | <N> |
-| Total Issues | <total> |
-| Infrastructure | <infra> |
+| 指标 | 数值 |
+|------|------|
+| 社区数 | <N> |
+| 总 Issues | <total> |
+| 基础设施类 | <infra> |
 
 Dashboard: docs/index.html
 ```
 
-Clean up `./dashboard_data.json`.
+清理 `./dashboard_data.json`。
