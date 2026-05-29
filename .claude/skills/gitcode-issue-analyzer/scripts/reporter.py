@@ -125,7 +125,7 @@ def generate_table(
         ])
 
     # Column widths target (display widths, CJK char = 2)
-    COL_MAX = {"仓库": 30, "Issue #": 10, "标题": 50, "子分类": 12,
+    COL_MAX = {"仓库": 34, "Issue #": 10, "标题": 50, "子分类": 12,
                "理由": 32, "原始标签": 24, "状态": 8, "创建时间": 10}
 
     def _fmt_row(cells: list[str]) -> str:
