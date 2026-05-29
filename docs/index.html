@@ -25,16 +25,18 @@
   .section { background: #fff; border-radius: 12px; padding: 28px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
   .section h2 { font-size: 1.4em; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #e94560; color: #1a1a2e; }
 
-  .community-table { width: 100%; border-collapse: collapse; }
-  .community-table th { background: #f0f2f5; text-align: left; padding: 12px 16px; font-weight: 600; color: #555; border-bottom: 2px solid #ddd; }
-  .community-table td { padding: 12px 16px; border-bottom: 1px solid #eee; }
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .community-table { width: 100%; border-collapse: collapse; white-space: nowrap; }
+  .community-table th { background: #f0f2f5; text-align: left; padding: 10px 12px; font-weight: 600; color: #555; border-bottom: 2px solid #ddd; font-size: 0.9em; }
+  .community-table td { padding: 10px 12px; border-bottom: 1px solid #eee; font-size: 0.9em; }
   .community-table tr:hover { background: #fafbfc; }
   .community-table .community-name { font-weight: 600; color: #0f3460; }
-  .bar-cell { width: 120px; }
+  .bar-cell { width: 100px; }
   .bar { height: 8px; border-radius: 4px; background: #e94560; }
+  .category-table td, .category-table th { text-align: center; }
 
   .chart-row { display: flex; gap: 24px; margin-bottom: 24px; flex-wrap: wrap; }
-  .chart-box { flex: 1; min-width: 300px; }
+  .chart-box { flex: 1; min-width: 280px; max-width: 100%; }
   .chart-box h3 { font-size: 1.05em; color: #555; margin-bottom: 12px; }
 
   .bar-chart .bar-item { display: flex; align-items: center; margin-bottom: 8px; }
@@ -97,6 +99,7 @@
 <!-- 各社区概况 -->
 <div class="section">
   <h2>各社区基础设施 Issue 概况</h2>
+  <div class="table-wrap">
   <table class="community-table">
     <thead>
       <tr>
@@ -169,6 +172,7 @@
       </tr>
     </tbody>
   </table>
+  </div>
 </div>
 
 <!-- 分类分布 -->
@@ -212,8 +216,9 @@
   <div class="chart-box">
     <div class="section" style="padding:20px;">
       <h2>各社区分类构成</h2>
-      <table class="community-table">
-        <thead><tr><th>社区</th><th>testing-infra</th><th>build</th><th>toolchain</th><th>ci/cd</th><th>dev-env</th><th>code-quality</th><th>other</th></tr></thead>
+      <div class="table-wrap">
+      <table class="community-table category-table">
+        <thead><tr><th>社区</th><th>testing<br>-infra</th><th>build</th><th>toolchain</th><th>ci/cd</th><th>dev<br>-env</th><th>code<br>-quality</th><th>other</th></tr></thead>
         <tbody>
           <tr><td class="community-name">CANN</td><td>10</td><td>30</td><td>10</td><td>5</td><td>13</td><td>5</td><td>1</td></tr>
           <tr><td class="community-name">Ascend</td><td>14</td><td>8</td><td>11</td><td>12</td><td>6</td><td>5</td><td>0</td></tr>
@@ -221,6 +226,7 @@
           <tr><td class="community-name">BoostKit</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
         </tbody>
       </table>
+      </div>
     </div>
   </div>
 </div>
