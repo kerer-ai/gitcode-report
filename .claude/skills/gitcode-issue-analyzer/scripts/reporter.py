@@ -34,7 +34,6 @@ def generate_table(
             labels_str += f" +{len(iss['labels']) - 5}"
 
         title = iss.get("title", "")
-        # Truncate long titles
         if len(title) > 60:
             title = title[:57] + "..."
 
@@ -42,9 +41,14 @@ def generate_table(
         if len(reason) > 40:
             reason = reason[:37] + "..."
 
+        repo = iss.get("repo", "")
+        number = iss.get("number", "")
+        repo_link = f"[{repo}](https://gitcode.com/{repo}/pulls)"
+        issue_link = f"[#{number}](https://gitcode.com/{repo}/issues/{number})"
+
         rows.append([
-            iss.get("repo", ""),
-            str(iss.get("number", "")),
+            repo_link,
+            issue_link,
             title,
             iss.get("category", ""),
             reason,
@@ -53,18 +57,38 @@ def generate_table(
             iss.get("created_at", "")[:10],
         ])
 
-    # Build markdown table
-    col_widths = [max(len(str(r[i])) for r in [headers] + rows) for i in range(len(headers))]
-    # Cap column widths
+    # Calculate column widths from display text (strip markdown link syntax)
+    def _display_len(cell: str) -> int:
+        """Return visible length of a markdown link cell, or plain length otherwise."""
+        if cell.startswith("[") and "](" in cell:
+            return len(cell[: cell.index("](")]) - 1  # subtract leading '['
+        return len(cell)
+
+    col_widths = [
+        max(_display_len(str(r[i])) for r in [headers] + rows)
+        for i in range(len(headers))
+    ]
     col_widths = [min(w, 30) for w in col_widths]
 
     def _fmt_row(cells: list[str]) -> str:
         parts = []
         for i, cell in enumerate(cells):
             c = str(cell)
-            if len(c) > col_widths[i]:
-                c = c[: col_widths[i] - 2] + ".."
-            parts.append(c.ljust(col_widths[i]))
+            dlen = _display_len(c)
+            if dlen > col_widths[i]:
+                # Truncate display portion, preserving link syntax
+                if c.startswith("[") and "](" in c:
+                    bracket_end = c.index("](")
+                    link_start = c.index("](")
+                    keep = col_widths[i] - 2
+                    if keep > 0:
+                        c = "[" + c[1:bracket_end][:keep] + ".." + c[link_start:]
+                    else:
+                        c = "[.." + c[link_start:]
+                else:
+                    c = c[: col_widths[i] - 2] + ".."
+                dlen = col_widths[i]
+            parts.append(c.ljust(col_widths[i] + (len(c) - dlen)))
         return "| " + " | ".join(parts) + " |"
 
     lines = []
@@ -117,7 +141,7 @@ def generate_summary(issues: list[dict], filter_infra: bool = True) -> str:
     lines.append("### 按仓库统计")
     lines.append("")
     for repo, count in repos.most_common():
-        lines.append(f"- {repo}: {count}")
+        lines.append(f"- [{repo}](https://gitcode.com/{repo}/pulls): {count}")
 
     return "\n".join(lines)
 
