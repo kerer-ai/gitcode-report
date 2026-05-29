@@ -1,7 +1,69 @@
 """Report output formatting — markdown tables and summary statistics."""
 
+import unicodedata
 from collections import Counter
 from datetime import datetime, timezone
+
+# Category code → Chinese display name
+CATEGORY_NAMES = {
+    "ci/cd": "持续集成",
+    "build": "构建系统",
+    "testing-infra": "测试基础设施",
+    "toolchain": "工具链",
+    "dev-environment": "开发环境",
+    "code-quality": "代码质量工具",
+    "deployment": "部署",
+    "containerization": "容器化",
+    "monitoring": "监控",
+    "logging": "日志",
+    "alerting": "告警",
+    "dependency-management": "依赖管理",
+    "developer-experience": "开发体验",
+    "other-infra": "其他基础设施",
+    "unknown": "未知",
+}
+
+
+def _display_width(text: str) -> int:
+    """Return display width accounting for CJK characters (2-wide)."""
+    w = 0
+    for ch in text:
+        if unicodedata.east_asian_width(ch) in ("W", "F"):
+            w += 2
+        else:
+            w += 1
+    return w
+
+
+def _truncate_display(text: str, max_width: int) -> str:
+    """Truncate text to fit within max_width display columns, adding '..'."""
+    w = 0
+    result = []
+    for ch in text:
+        cw = 2 if unicodedata.east_asian_width(ch) in ("W", "F") else 1
+        if w + cw > max_width - 2:
+            result.append("..")
+            break
+        w += cw
+        result.append(ch)
+    return "".join(result)
+
+
+def _visible_text(cell: str) -> str:
+    """Extract visible portion of a markdown link."""
+    if cell.startswith("[") and "](" in cell:
+        return cell[1 : cell.index("](")]
+    return cell
+
+
+def _pad_cell(cell: str, target_width: int) -> str:
+    """Pad cell to target display width, handling CJK and markdown links."""
+    text = _visible_text(cell)
+    current_w = _display_width(text)
+    pad_needed = target_width - current_w
+    if pad_needed > 0:
+        return cell + " " * pad_needed
+    return cell
 
 
 def generate_table(
@@ -23,77 +85,71 @@ def generate_table(
             return "未发现基础设施类 issue。"
 
     # Sort by repo then number
-    issues = sorted(issues, key=lambda i: (i.get("repo", ""), i.get("number", 0)))
+    issues = sorted(issues, key=lambda i: (i.get("repo", ""), int(i.get("number", 0))))
 
     headers = ["仓库", "Issue #", "标题", "子分类", "理由", "原始标签", "状态", "创建时间"]
     rows = []
 
     for iss in issues:
-        labels_str = ", ".join(iss.get("labels", [])[:5])
-        if len(iss.get("labels", [])) > 5:
-            labels_str += f" +{len(iss['labels']) - 5}"
+        labels = iss.get("labels", []) or []
+        labels_str = ", ".join(labels[:5])
+        if len(labels) > 5:
+            labels_str += f" +{len(labels) - 5}"
 
         title = iss.get("title", "")
-        if len(title) > 60:
-            title = title[:57] + "..."
+        # Truncate long titles to ~50 display width
+        if _display_width(title) > 50:
+            title = _truncate_display(title, 50)
 
         reason = iss.get("reason", "")
-        if len(reason) > 40:
-            reason = reason[:37] + "..."
+        if _display_width(reason) > 36:
+            reason = _truncate_display(reason, 36)
 
         repo = iss.get("repo", "")
         number = iss.get("number", "")
         repo_link = f"[{repo}](https://gitcode.com/{repo}/pulls)"
         issue_link = f"[#{number}](https://gitcode.com/{repo}/issues/{number})"
 
+        cat_code = iss.get("category", "") or ""
+        cat_display = CATEGORY_NAMES.get(cat_code, cat_code)
+
         rows.append([
             repo_link,
             issue_link,
             title,
-            iss.get("category", ""),
+            cat_display,
             reason,
             labels_str,
             iss.get("state", ""),
             iss.get("created_at", "")[:10],
         ])
 
-    # Calculate column widths from display text (strip markdown link syntax)
-    def _display_len(cell: str) -> int:
-        """Return visible length of a markdown link cell, or plain length otherwise."""
-        if cell.startswith("[") and "](" in cell:
-            return len(cell[: cell.index("](")]) - 1  # subtract leading '['
-        return len(cell)
-
-    col_widths = [
-        max(_display_len(str(r[i])) for r in [headers] + rows)
-        for i in range(len(headers))
-    ]
-    col_widths = [min(w, 30) for w in col_widths]
+    # Column widths target (display widths)
+    COL_MAX = {"仓库": 24, "Issue #": 10, "标题": 50, "子分类": 8,
+               "理由": 36, "原始标签": 22, "状态": 8, "创建时间": 10}
 
     def _fmt_row(cells: list[str]) -> str:
         parts = []
         for i, cell in enumerate(cells):
-            c = str(cell)
-            dlen = _display_len(c)
-            if dlen > col_widths[i]:
-                # Truncate display portion, preserving link syntax
-                if c.startswith("[") and "](" in c:
-                    bracket_end = c.index("](")
-                    link_start = c.index("](")
-                    keep = col_widths[i] - 2
-                    if keep > 0:
-                        c = "[" + c[1:bracket_end][:keep] + ".." + c[link_start:]
-                    else:
-                        c = "[.." + c[link_start:]
+            header_key = headers[i]
+            target = COL_MAX.get(header_key, 20)
+            text = _visible_text(cell)
+            # Truncate if needed
+            if _display_width(text) > target:
+                if cell.startswith("[") and "](" in cell:
+                    link_start = cell.index("](")
+                    keep = _truncate_display(text, target)
+                    cell = f"[{keep}]{cell[link_start:]}"
+                    text = keep
                 else:
-                    c = c[: col_widths[i] - 2] + ".."
-                dlen = col_widths[i]
-            parts.append(c.ljust(col_widths[i] + (len(c) - dlen)))
+                    cell = _truncate_display(text, target)
+                    text = cell
+            parts.append(_pad_cell(cell, target))
         return "| " + " | ".join(parts) + " |"
 
     lines = []
     lines.append(_fmt_row(headers))
-    lines.append("|-" + "-|-".join("-" * w for w in col_widths) + "-|")
+    lines.append("|-" + "-|-".join("-" * COL_MAX[h] for h in headers) + "-|")
     for row in rows:
         lines.append(_fmt_row(row))
 
@@ -134,7 +190,8 @@ def generate_summary(issues: list[dict], filter_infra: bool = True) -> str:
     ]
     if categories:
         for cat, count in categories.most_common():
-            lines.append(f"- {cat}: {count}")
+            cat_display = CATEGORY_NAMES.get(cat, cat)
+            lines.append(f"- {cat_display}: {count}")
     else:
         lines.append("- (无)")
 
